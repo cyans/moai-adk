@@ -206,15 +206,38 @@ def build_statusline_data(session_context: dict, mode: str = "compact") -> str:
             try:
                 # Windows에서 한글 경로 처리
                 if sys.platform == 'win32':
-                    # 경로를 UTF-8로 디코딩하여 처리
+                    # 경로를 문자열로 변환
                     if isinstance(cwd, bytes):
+                        # bytes인 경우 UTF-8로 디코딩
                         cwd = cwd.decode('utf-8', errors='replace')
-                    # Path 객체 생성 시 UTF-8 보장
-                    cwd_path = Path(cwd)
-                    directory = cwd_path.name or cwd_path.parent.name or "project"
+                    
+                    # 경로 문자열에서 직접 디렉토리 이름 추출 (Path 객체 사용 전)
+                    # Windows 경로 구분자 처리
+                    normalized_path = cwd.replace('\\', '/').rstrip('/')
+                    path_parts = normalized_path.split('/')
+                    
+                    # 마지막 비어있지 않은 부분이 디렉토리 이름
+                    directory = path_parts[-1] if path_parts and path_parts[-1] else "project"
+                    
+                    # 빈 문자열이거나 루트 경로인 경우
+                    if not directory or directory == normalized_path:
+                        # 부모 디렉토리 시도
+                        if len(path_parts) > 1:
+                            directory = path_parts[-2] if path_parts[-2] else "project"
+                        else:
+                            directory = "project"
+                    
+                    # UTF-8 인코딩 보장 (한글이 깨지지 않도록)
+                    if directory and directory != "project":
+                        try:
+                            # 이미 올바른 UTF-8 문자열인지 확인하고 보장
+                            directory = directory.encode('utf-8', errors='replace').decode('utf-8')
+                        except Exception:
+                            pass
                 else:
+                    # Unix 계열에서는 Path 객체 사용
                     directory = Path(cwd).name or Path(cwd).parent.name or "project"
-            except Exception:
+            except Exception as e:
                 # 경로 처리 실패 시 기본값
                 directory = "project"
         else:
