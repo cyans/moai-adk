@@ -38,9 +38,15 @@ if sys.platform == 'win32':
 try:
     from .data import StatuslineData
     from .renderer import StatuslineRenderer
+    from .version_reader import VersionReader, VersionConfig
 except ImportError:
     from data import StatuslineData
     from renderer import StatuslineRenderer
+    try:
+        from version_reader import VersionReader, VersionConfig
+    except ImportError:
+        VersionReader = None
+        VersionConfig = None
 
 
 def read_session_context() -> dict:
@@ -113,15 +119,39 @@ def safe_collect_alfred_task() -> str:
 def safe_collect_version() -> str:
     """
     Safely collect MoAI-ADK version with fallback.
+    실제 VersionReader를 사용하여 .moai/config/config.json에서 버전을 읽습니다.
 
     Returns:
         Version string
     """
     try:
-        # Mock implementation for testing
-        return "0.1.0"
+        if VersionReader is not None:
+            # 실제 VersionReader 사용
+            version_config = VersionConfig(
+                cache_ttl_seconds=60,
+                fallback_version="unknown",
+                enable_validation=False
+            )
+            version_reader = VersionReader(config=version_config)
+            version = version_reader.get_version()
+            # "v" 접두사 제거 (있는 경우)
+            if version.startswith("v"):
+                version = version[1:]
+            return version
+        else:
+            # Fallback: 패키지 버전 사용
+            try:
+                from moai_adk import __version__
+                return __version__
+            except ImportError:
+                return "unknown"
     except Exception:
-        return "unknown"
+        # 최종 fallback
+        try:
+            from moai_adk import __version__
+            return __version__
+        except ImportError:
+            return "unknown"
 
 
 def safe_check_update(current_version: str) -> tuple[bool, Optional[str]]:
@@ -170,10 +200,23 @@ def build_statusline_data(session_context: dict, mode: str = "compact") -> str:
         claude_version = session_context.get("version", "")
         model = model_name
 
-        # Extract directory
+        # Extract directory (한글 경로 인코딩 처리)
         cwd = session_context.get("cwd", "")
         if cwd:
-            directory = Path(cwd).name or Path(cwd).parent.name or "project"
+            try:
+                # Windows에서 한글 경로 처리
+                if sys.platform == 'win32':
+                    # 경로를 UTF-8로 디코딩하여 처리
+                    if isinstance(cwd, bytes):
+                        cwd = cwd.decode('utf-8', errors='replace')
+                    # Path 객체 생성 시 UTF-8 보장
+                    cwd_path = Path(cwd)
+                    directory = cwd_path.name or cwd_path.parent.name or "project"
+                else:
+                    directory = Path(cwd).name or Path(cwd).parent.name or "project"
+            except Exception:
+                # 경로 처리 실패 시 기본값
+                directory = "project"
         else:
             directory = "project"
 
