@@ -265,7 +265,23 @@ class ConfigGenerator:
 
         # .mcp.json 경로
         mcp_path = os.path.join(base_dir, '.mcp.json')
+        # Windows에서 실제 파일에 저장할 때는 변환된 형식으로 저장
         mcp_config = self.generate_mcp_config()
+        # Windows인 경우 변환된 형식으로 딕셔너리 복사본 생성 (원본 수정 방지)
+        os_type = self.detector.detect_os()
+        if os_type == 'windows':
+            import copy
+            mcp_config = copy.deepcopy(mcp_config)
+            if 'mcpServers' in mcp_config:
+                for server_name, server_config in mcp_config['mcpServers'].items():
+                    # SSE 타입은 변환하지 않음
+                    if server_config.get('type') == 'sse':
+                        continue
+                    # command가 npx인 경우 Windows에서 cmd로 변환
+                    if server_config.get('command') == 'npx':
+                        server_config['command'] = 'cmd'
+                        original_args = server_config.get('args', [])
+                        server_config['args'] = ['/c', 'npx'] + original_args
         results['mcp'] = self.apply_config(mcp_config, mcp_path)
 
         # .claude/settings.json 경로
