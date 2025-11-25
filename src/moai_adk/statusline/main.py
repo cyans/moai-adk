@@ -15,6 +15,26 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Windows에서 UTF-8 인코딩 강제 설정
+if sys.platform == 'win32':
+    try:
+        # stdout과 stderr을 UTF-8로 재설정
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        
+        # Windows 콘솔 코드 페이지를 UTF-8로 설정
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleOutputCP(65001)  # UTF-8 코드 페이지
+            kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass  # 실패해도 계속 진행
+    except Exception:
+        pass  # 실패해도 계속 진행
+
 try:
     from .data import StatuslineData
     from .renderer import StatuslineRenderer
@@ -200,23 +220,36 @@ def build_statusline_data(session_context: dict, mode: str = "compact") -> str:
 def safe_print(text: str):
     """
     Safely print text with proper encoding handling for Windows.
+    Windows에서 이모지가 제대로 출력되도록 UTF-8 인코딩 보장.
 
     Args:
         text: Text to print
     """
     try:
-        # Try normal print first
-        print(text, end="")
-    except UnicodeEncodeError:
-        # Fallback for Windows environments
+        # Windows에서 UTF-8로 직접 출력
+        if sys.platform == 'win32':
+            # UTF-8 바이트로 인코딩 후 stdout에 직접 쓰기
+            if hasattr(sys.stdout, 'buffer'):
+                sys.stdout.buffer.write(text.encode('utf-8', errors='replace'))
+                sys.stdout.buffer.flush()
+            else:
+                print(text, end="")
+        else:
+            # 다른 플랫폼에서는 일반 print 사용
+            print(text, end="")
+    except (UnicodeEncodeError, AttributeError):
+        # Fallback: 일반 print 시도
         try:
-            # Try to encode as UTF-8 and replace problematic characters
-            utf8_text = text.encode('utf-8', errors='replace').decode('utf-8')
-            print(utf8_text, end="")
+            print(text, end="")
         except Exception:
-            # Final fallback: remove all Unicode characters
-            safe_text = ''.join(c for c in text if ord(c) < 128)
-            print(safe_text, end="")
+            # 최종 fallback: UTF-8로 인코딩 시도
+            try:
+                utf8_text = text.encode('utf-8', errors='replace').decode('utf-8')
+                print(utf8_text, end="")
+            except Exception:
+                # 최후의 수단: ASCII만 출력
+                safe_text = ''.join(c for c in text if ord(c) < 128)
+                print(safe_text, end="")
 
 
 def main():

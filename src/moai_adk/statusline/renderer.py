@@ -24,19 +24,6 @@ class StatuslineRenderer:
             'task': 'task',
             'style': 'style'
         }
-        # Windows 호환 가능한 이모지 매핑
-        self.win_safe_emojis = {
-            '🚀': '->',
-            '📂': '[D]',
-            '🌿': '[G]',
-            '💭': '[T]',
-            '✨': '[S]',
-            '🔷': '[V]',
-            '📊': '[S]',
-            '⏱️': '[T]',
-            '💡': '[T]',
-            '🔄': '[U]'
-        }
 
     def render(self, data: StatuslineData, mode: str = "compact") -> str:
         """
@@ -62,18 +49,15 @@ class StatuslineRenderer:
 
         # 모델 정보
         if data.model:
-            model_icon = self.win_safe_emojis['🚀']
-            parts.append(f"{model_icon}{data.model.replace('Claude', 'GOOS')}")  # Windows 최적화
+            parts.append(f"🤖 {data.model}")
 
         # 디렉토리
         if data.directory:
-            dir_icon = self.win_safe_emojis['📂']
-            parts.append(f"{dir_icon}{data.directory}")
+            parts.append(f"📁 {data.directory}")
 
         # 브랜치 정보
         if data.branch and data.branch != "unknown":
-            branch_icon = self.win_safe_emojis['🌿']
-            parts.append(f"{branch_icon}{data.branch}")
+            parts.append(f"🔀 {data.branch}")
 
         # 활성 작업
         if data.active_task:
@@ -81,10 +65,9 @@ class StatuslineRenderer:
 
         # 스타일 정보
         if data.output_style:
-            style_icon = self.win_safe_emojis['✨']
-            parts.append(f"{style_icon}{data.output_style}")
+            parts.append(f"💬 {data.output_style}")
 
-        return "│".join(parts)
+        return " │ ".join(parts)
 
     def _render_extended(self, data: StatuslineData) -> str:
         """Extended 모드 렌더링"""
@@ -92,32 +75,25 @@ class StatuslineRenderer:
 
         # 상세 정보 구성
         if data.model:
-            model_icon = self.win_safe_emojis['🚀']
-            parts.append(f"{model_icon} {data.model}")
+            parts.append(f"🤖 {data.model}")
         if data.claude_version:
-            version_icon = self.win_safe_emojis['🔷']
-            parts.append(f"{version_icon} {data.claude_version}")
+            parts.append(f"v{data.claude_version}")
+        if data.version:
+            parts.append(f"🗿 {data.version}")
         if data.directory:
-            dir_icon = self.win_safe_emojis['📂']
-            parts.append(f"{dir_icon} {data.directory}")
+            parts.append(f"📁 {data.directory}")
         if data.branch and data.branch != "unknown":
-            branch_icon = self.win_safe_emojis['🌿']
-            parts.append(f"{branch_icon} {data.branch}")
+            parts.append(f"🔀 {data.branch}")
         if data.git_status:
-            status_icon = self.win_safe_emojis['📊']
-            parts.append(f"{status_icon} {data.git_status}")
+            parts.append(f"📊 {data.git_status}")
         if data.duration:
-            time_icon = self.win_safe_emojis['⏱️']
-            parts.append(f"{time_icon} {data.duration}")
+            parts.append(f"⏱️ {data.duration}")
         if data.active_task:
-            task_icon = self.win_safe_emojis['💭']
-            parts.append(f"{task_icon} {data.active_task}")
+            parts.append(f"💭 {data.active_task}")
         if data.output_style:
-            style_icon = self.win_safe_emojis['✨']
-            parts.append(f"{style_icon} {data.output_style}")
+            parts.append(f"💬 {data.output_style}")
         if data.update_available and data.latest_version:
-            update_icon = self.win_safe_emojis['🔄']
-            parts.append(f"{update_icon} {data.latest_version}")
+            parts.append(f"🔄 {data.latest_version}")
 
         return " │ ".join(parts)
 
