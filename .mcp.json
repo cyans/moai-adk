@@ -2,15 +2,52 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
     },
     "figma-dev-mode-mcp-server": {
       "type": "sse",
       "url": "http://127.0.0.1:3845/sse"
+    },
+    "magic": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "magic-mcp@latest"
+      ]
+    },
+    "morphllm": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "morphllm@latest"
+      ]
+    },
+    "serena": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "serena-mcp@latest"
+      ]
     }
+  },
+  "platformDetection": {
+    "autoDetect": true,
+    "platform": "auto",
+    "fallback": "cross-platform"
+  },
+  "performance": {
+    "optimization": true,
+    "concurrentConnections": 3,
+    "timeout": 30000
   }
 }

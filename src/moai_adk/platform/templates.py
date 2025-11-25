@@ -34,56 +34,54 @@ class ConfigTemplates:
         self._claude_settings_templates = self._init_claude_settings_templates()
 
     def _init_mcp_templates(self) -> Dict[str, Any]:
-        """MCP 서버 설정 템플릿 초기화"""
-        return {
-            'windows': {
-                'mcpServers': {
-                    'context7': {
-                        'command': 'cmd',
-                        'args': ['/c', 'npx', '-y', '@upstash/context7-mcp@latest']
-                    },
-                    'playwright': {
-                        'command': 'cmd',
-                        'args': ['/c', 'npx', '-y', 'playwright-bdd@latest']
-                    },
-                    'figma-dev-mode-mcp-server': {
-                        'command': 'cmd',
-                        'args': ['/c', 'npx', '-y', 'figma-dev-mode-mcp-server@latest']
-                    }
+        """MCP 서버 설정 템플릿 초기화
+        모든 플랫폼에서 동일한 Linux 스타일로 작성 (Windows는 런타임에 자동 변환)
+        """
+        # 깔끔한 Linux 스타일 템플릿 (Windows는 config_generator에서 자동 변환)
+        base_template = {
+            'mcpServers': {
+                'context7': {
+                    'command': 'npx',
+                    'args': ['-y', '@upstash/context7-mcp@latest']
+                },
+                'playwright': {
+                    'command': 'npx',
+                    'args': ['-y', '@playwright/mcp@latest']
+                },
+                'figma-dev-mode-mcp-server': {
+                    'type': 'sse',
+                    'url': 'http://127.0.0.1:3845/sse'
+                },
+                'magic': {
+                    'command': 'npx',
+                    'args': ['-y', 'magic-mcp@latest']
+                },
+                'morphllm': {
+                    'command': 'npx',
+                    'args': ['-y', 'morphllm@latest']
+                },
+                'serena': {
+                    'command': 'npx',
+                    'args': ['-y', 'serena-mcp@latest']
                 }
             },
-            'macos': {
-                'mcpServers': {
-                    'context7': {
-                        'command': 'bash',
-                        'args': ['-c', 'npx', '-y', '@upstash/context7-mcp@latest']
-                    },
-                    'playwright': {
-                        'command': 'bash',
-                        'args': ['-c', 'npx', '-y', 'playwright-bdd@latest']
-                    },
-                    'figma-dev-mode-mcp-server': {
-                        'command': 'bash',
-                        'args': ['-c', 'npx', '-y', 'figma-dev-mode-mcp-server@latest']
-                    }
-                }
+            'platformDetection': {
+                'autoDetect': True,
+                'platform': 'auto',
+                'fallback': 'cross-platform'
             },
-            'linux': {
-                'mcpServers': {
-                    'context7': {
-                        'command': 'bash',
-                        'args': ['-c', 'npx', '-y', '@upstash/context7-mcp@latest']
-                    },
-                    'playwright': {
-                        'command': 'bash',
-                        'args': ['-c', 'npx', '-y', 'playwright-bdd@latest']
-                    },
-                    'figma-dev-mode-mcp-server': {
-                        'command': 'bash',
-                        'args': ['-c', 'npx', '-y', 'figma-dev-mode-mcp-server@latest']
-                    }
-                }
+            'performance': {
+                'optimization': True,
+                'concurrentConnections': 3,
+                'timeout': 30000
             }
+        }
+        
+        # 모든 플랫폼에서 동일한 템플릿 반환 (Windows 변환은 config_generator에서 처리)
+        return {
+            'windows': base_template,
+            'macos': base_template,
+            'linux': base_template
         }
 
     def _init_statusline_templates(self) -> Dict[str, Any]:

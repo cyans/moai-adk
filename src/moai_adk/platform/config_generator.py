@@ -55,10 +55,38 @@ class ConfigGenerator:
     def generate_mcp_config(self) -> Dict[str, Any]:
         """
         MCP 설정 동적 생성
+        .mcp.json 파일을 읽어서 플랫폼에 맞게 자동 변환합니다.
 
         Returns:
-            Dict[str, Any]: MCP 설정
+            Dict[str, Any]: MCP 설정 (플랫폼에 맞게 변환됨)
         """
+        # 먼저 .mcp.json 파일이 있는지 확인
+        mcp_file_path = '.mcp.json'
+        if os.path.exists(mcp_file_path):
+            try:
+                with open(mcp_file_path, 'r', encoding='utf-8') as f:
+                    mcp_config = json.load(f)
+                
+                # Windows에서 npx 명령을 cmd로 변환
+                os_type = self.detector.detect_os()
+                if os_type == 'windows' and 'mcpServers' in mcp_config:
+                    for server_name, server_config in mcp_config['mcpServers'].items():
+                        # SSE 타입은 변환하지 않음
+                        if server_config.get('type') == 'sse':
+                            continue
+                        
+                        # command가 npx인 경우 Windows에서 cmd로 변환
+                        if server_config.get('command') == 'npx':
+                            server_config['command'] = 'cmd'
+                            original_args = server_config.get('args', [])
+                            server_config['args'] = ['/c', 'npx'] + original_args
+                
+                return mcp_config
+            except (JSONDecodeError, OSError, Exception):
+                # 파일 읽기 실패 시 템플릿 사용
+                pass
+        
+        # 파일이 없거나 읽기 실패 시 템플릿 사용
         os_type = self.detector.detect_os()
         return self.templates.get_mcp_template(os_type)
 
