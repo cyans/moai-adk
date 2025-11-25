@@ -1117,7 +1117,13 @@ class TemplateProcessor:
         self.merger.merge_gitignore(src, dst)
 
     def _copy_mcp_json(self, silent: bool = False) -> None:
-        """.mcp.json copy (smart merge with existing MCP server configuration)."""
+        """.mcp.json copy (smart merge with existing MCP server configuration).
+        
+        Windows에서 자동으로 cmd 형식으로 변환하여 저장합니다.
+        """
+        import sys
+        import platform
+        
         src = self.template_root / ".mcp.json"
         dst = self.target_path / ".mcp.json"
 
@@ -1127,10 +1133,19 @@ class TemplateProcessor:
         # Merge with existing .mcp.json when present (preserve user-added MCP servers)
         if dst.exists():
             self._merge_mcp_json(src, dst)
+            # Windows에서 병합 후에도 변환 적용
+            if platform.system().lower() == "windows":
+                self._adapt_mcp_json_for_windows(dst)
             if not silent:
                 console.print("   🔄 .mcp.json merged (user MCP servers preserved)")
         else:
-            shutil.copy2(src, dst)
+            # Windows에서 복사 시 변환된 형식으로 저장
+            if platform.system().lower() == "windows":
+                src_data = json.loads(src.read_text(encoding="utf-8"))
+                adapted_data = self._adapt_mcp_config_for_windows(src_data)
+                dst.write_text(json.dumps(adapted_data, indent=2, ensure_ascii=False), encoding="utf-8")
+            else:
+                shutil.copy2(src, dst)
             if not silent:
                 console.print("   ✅ .mcp.json copy complete")
 
@@ -1156,6 +1171,45 @@ class TemplateProcessor:
             dst.write_text(json.dumps(dst_data, indent=2, ensure_ascii=False), encoding="utf-8")
         except json.JSONDecodeError as e:
             console.print(f"[yellow]⚠️ Failed to merge .mcp.json: {e}[/yellow]")
+    
+    def _adapt_mcp_config_for_windows(self, mcp_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Windows에서 MCP 설정을 cmd 형식으로 변환.
+        
+        Args:
+            mcp_config: 원본 MCP 설정
+            
+        Returns:
+            Windows에 최적화된 MCP 설정
+        """
+        import copy
+        adapted_config = copy.deepcopy(mcp_config)
+        
+        if "mcpServers" in adapted_config:
+            for server_name, server_config in adapted_config["mcpServers"].items():
+                # SSE 타입은 변환하지 않음
+                if server_config.get("type") == "sse":
+                    continue
+                
+                # command가 npx인 경우 Windows에서 cmd로 변환
+                if server_config.get("command") == "npx":
+                    server_config["command"] = "cmd"
+                    original_args = server_config.get("args", [])
+                    server_config["args"] = ["/c", "npx"] + original_args
+        
+        return adapted_config
+    
+    def _adapt_mcp_json_for_windows(self, mcp_path: Path) -> None:
+        """기존 .mcp.json 파일을 Windows 형식으로 변환.
+        
+        Args:
+            mcp_path: .mcp.json 파일 경로
+        """
+        try:
+            mcp_data = json.loads(mcp_path.read_text(encoding="utf-8"))
+            adapted_data = self._adapt_mcp_config_for_windows(mcp_data)
+            mcp_path.write_text(json.dumps(adapted_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass  # 변환 실패 시 무시
 
     def merge_config(self, detected_language: str | None = None) -> dict[str, str]:
         """Delegate the smart merge for config.json.
