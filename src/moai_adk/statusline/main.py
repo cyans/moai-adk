@@ -154,6 +154,46 @@ def safe_collect_version() -> str:
             return "unknown"
 
 
+def _extract_directory_from_cwd(cwd: str) -> str:
+    """Windows에서 cwd 문자열에서 디렉토리 이름 추출 (인코딩 문제 해결).
+    
+    Args:
+        cwd: 현재 작업 디렉토리 경로
+        
+    Returns:
+        디렉토리 이름
+    """
+    try:
+        if isinstance(cwd, bytes):
+            # 여러 인코딩으로 시도
+            for encoding in ['utf-8', 'cp949', 'latin-1']:
+                try:
+                    cwd = cwd.decode(encoding)
+                    break
+                except (UnicodeDecodeError, AttributeError):
+                    continue
+            else:
+                cwd = cwd.decode('utf-8', errors='replace')
+        
+        # 경로 문자열에서 직접 디렉토리 이름 추출
+        normalized_path = cwd.replace('\\', '/').rstrip('/')
+        path_parts = normalized_path.split('/')
+        
+        # 마지막 비어있지 않은 부분이 디렉토리 이름
+        directory = path_parts[-1] if path_parts and path_parts[-1] else "project"
+        
+        # 빈 문자열이거나 루트 경로인 경우
+        if not directory or directory == normalized_path:
+            if len(path_parts) > 1:
+                directory = path_parts[-2] if path_parts[-2] else "project"
+            else:
+                directory = "project"
+        
+        return directory
+    except Exception:
+        return "project"
+
+
 def safe_check_update(current_version: str) -> tuple[bool, Optional[str]]:
     """
     Safely check for updates with fallback.
@@ -201,46 +241,37 @@ def build_statusline_data(session_context: dict, mode: str = "compact") -> str:
         model = model_name
 
         # Extract directory (한글 경로 인코딩 처리)
-        cwd = session_context.get("cwd", "")
-        if cwd:
-            try:
-                # Windows에서 한글 경로 처리
-                if sys.platform == 'win32':
-                    # 경로를 문자열로 변환
-                    if isinstance(cwd, bytes):
-                        # bytes인 경우 UTF-8로 디코딩
-                        cwd = cwd.decode('utf-8', errors='replace')
-                    
-                    # 경로 문자열에서 직접 디렉토리 이름 추출 (Path 객체 사용 전)
-                    # Windows 경로 구분자 처리
-                    normalized_path = cwd.replace('\\', '/').rstrip('/')
-                    path_parts = normalized_path.split('/')
-                    
-                    # 마지막 비어있지 않은 부분이 디렉토리 이름
-                    directory = path_parts[-1] if path_parts and path_parts[-1] else "project"
-                    
-                    # 빈 문자열이거나 루트 경로인 경우
-                    if not directory or directory == normalized_path:
-                        # 부모 디렉토리 시도
-                        if len(path_parts) > 1:
-                            directory = path_parts[-2] if path_parts[-2] else "project"
-                        else:
-                            directory = "project"
-                    
-                    # UTF-8 인코딩 보장 (한글이 깨지지 않도록)
-                    if directory and directory != "project":
-                        try:
-                            # 이미 올바른 UTF-8 문자열인지 확인하고 보장
-                            directory = directory.encode('utf-8', errors='replace').decode('utf-8')
-                        except Exception:
-                            pass
-                else:
-                    # Unix 계열에서는 Path 객체 사용
+        # Windows에서 한글 경로가 깨지는 문제 해결: 실제 파일 시스템에서 경로 읽기
+        try:
+            if sys.platform == 'win32':
+                # Windows에서는 os.getcwd()를 사용하여 실제 파일 시스템에서 경로 가져오기
+                # 이렇게 하면 인코딩 문제를 피할 수 있음
+                try:
+                    actual_cwd = os.getcwd()
+                    cwd_path = Path(actual_cwd)
+                    directory = cwd_path.name
+                    if not directory:
+                        directory = cwd_path.parent.name or "project"
+                except Exception:
+                    # os.getcwd() 실패 시 session_context에서 시도
+                    cwd = session_context.get("cwd", "")
+                    if cwd:
+                        # 여러 인코딩으로 시도
+                        directory = _extract_directory_from_cwd(cwd)
+                    else:
+                        directory = "project"
+            else:
+                # Unix 계열에서는 session_context의 cwd 사용
+                cwd = session_context.get("cwd", "")
+                if cwd:
                     directory = Path(cwd).name or Path(cwd).parent.name or "project"
-            except Exception as e:
-                # 경로 처리 실패 시 기본값
-                directory = "project"
-        else:
+                else:
+                    try:
+                        actual_cwd = os.getcwd()
+                        directory = Path(actual_cwd).name or "project"
+                    except Exception:
+                        directory = "project"
+        except Exception:
             directory = "project"
 
         # Extract output style from session context
