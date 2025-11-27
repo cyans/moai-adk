@@ -13,6 +13,7 @@ to reduce CLI startup time by 75% (~400ms → ~100ms).
 """
 
 import sys
+from pathlib import Path
 
 import click
 
@@ -26,6 +27,15 @@ def get_console():
     """Get or create Rich Console instance (lazy loading)"""
     global _console
     if _console is None:
+        # Temporarily rename the platform module to avoid conflict
+        import sys
+        if 'moai_adk.platform' in sys.modules:
+            del sys.modules['moai_adk.platform']
+
+        # Remove conflicting platform module from __main__ if needed
+        if '__main__' in sys.modules and 'platform' in sys.modules['__main__'].__dict__:
+            del sys.modules['__main__'].__dict__['platform']
+
         from rich.console import Console
 
         _console = Console()
@@ -151,6 +161,41 @@ def update(ctx: click.Context, **kwargs) -> None:
     from moai_adk.cli.commands.update import update as _update
 
     ctx.invoke(_update, **kwargs)
+
+
+@cli.command(name="windows-optimize")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be optimized without making changes",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Force optimization even if system checks pass",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed optimization information",
+)
+@click.pass_context
+def windows_optimize_cli(
+    ctx: click.Context,
+    dry_run: bool,
+    force: bool,
+    verbose: bool,
+) -> None:
+    """Apply Windows-specific optimizations to MoAI-ADK"""
+    try:
+        # Import only after CLI setup
+        from moai_adk.cli.commands.windows_optimize import windows_optimize as _windows_optimize
+        _windows_optimize(dry_run=dry_run, force=force, verbose=verbose)
+    except ImportError as e:
+        console = get_console()
+        console.print(f"[red]Error loading Windows optimization module: {e}[/red]")
+        raise click.ClickException(str(e))
 
 
 # statusline command (for Claude Code statusline rendering)

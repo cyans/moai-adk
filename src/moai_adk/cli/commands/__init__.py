@@ -13,5 +13,6 @@ from moai_adk.cli.commands.doctor import doctor
 from moai_adk.cli.commands.init import init
 from moai_adk.cli.commands.status import status
 from moai_adk.cli.commands.update import update
+from moai_adk.cli.commands.windows_optimize import windows_optimize
 
-__all__ = ["init", "doctor", "status", "update"]
+__all__ = ["init", "doctor", "status", "update", "windows_optimize"]
