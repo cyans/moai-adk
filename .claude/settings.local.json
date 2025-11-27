@@ -1,0 +1,33 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "9b321e59aaa04c778dc551135f0befec.MOAYLe5nctGn1dPO",
+    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.6",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-4.6"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git rev-parse:*)",
+      "Bash(git show-ref:*)",
+      "Bash(git rm:*)",
+      "Bash(git fetch:*)",
+      "Bash(git restore:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "playwright",
+    "magic"
+  ],
+  "disabledMcpjsonServers": [
+    "figma-dev-mode-mcp-server",
+    "morphllm",
+    "serena"
+  ],
+  "_meta": {
+    "description": "User-specific Claude Code settings (gitignored - never commit)",
+    "created_at": "2025-11-25T23:00:47.016743Z",
+    "note": "Edit this file to customize your local development environment"
+  }
+}

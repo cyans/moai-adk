@@ -1,0 +1,78 @@
+{
+  "specs": {
+    "SPEC-WINDOWS-COMPLETE-001": {
+      "title": "Windows 최적화 및 커스터마이징 완성",
+      "version": "1.0.0",
+      "status": "completed",
+      "created": "2025-11-25",
+      "tags": ["windows", "optimization", "performance", "completed"],
+      "priority": "high",
+      "owner": "GOOS",
+      "description": "MoAI-ADK의 Windows 플랫폼 지원을 완전히 최적화하고 커스터마이징 기능을 구현하는 종합 사양",
+      "progress": {
+        "total": 5,
+        "completed": 5,
+        "percentage": 100
+      },
+      "tags_submitted": {
+        "TAG-WIN-001": "동적 플랫폼 감지 기능 구현",
+        "TAG-WIN-002": "Windows 환경 변수 최적화",
+        "TAG-WIN-003": "Windows 파일 시스템 최적화",
+        "TAG-WIN-004": "Windows 진단 정보 강화",
+        "TAG-WIN-005": "사용자 지정 설정 관리"
+      }
+    },
+    "SPEC-STATUSLINE-CLEANUP-001": {
+      "title": "상태선 시스템 개선 및 Windows 호환성 완성",
+      "version": "1.0.0",
+      "status": "completed",
+      "created": "2025-11-26",
+      "tags": ["statusline", "windows", "korean", "performance", "completed"],
+      "priority": "high",
+      "owner": "GOOS",
+      "description": "MoAI-ADK 상태선 시스템의 성능을 최적화하고 Windows 환경에서의 한글 및 이모지 호환성을 완전히 해결하는 사양",
+      "progress": {
+        "total": 12,
+        "completed": 12,
+        "percentage": 100
+      },
+      "tags_submitted": {
+        "TAG-WIN-005-1": "UTF-8 인코딩 강제 설정",
+        "TAG-WIN-005-2": "Windows 한글 경로 처리",
+        "TAG-WIN-005-3": "장애 내성 정보 수집",
+        "TAG-WIN-005-4": "Powerline 멀티 모드 렌더링",
+        "TAG-WIN-005-5": "색상 시스템",
+        "TAG-WIN-005-6": "삼각형 세그먼트 분리자",
+        "TAG-WIN-005-7": "터미널 자동 감지",
+        "TAG-WIN-005-8": "Unicode 지능적 판별",
+        "TAG-WIN-005-9": "다단계 안전 출력",
+        "TAG-WIN-005-10": "타입 안전 데이터 모델",
+        "TAG-WIN-005-11": "데이터 정제 및 표준화",
+        "TAG-WIN-005-12": "통합된 정보 수집"
+      }
+    },
+    "SPEC-AGENT-FACTORY-001": {
+      "title": "에이전트 팩토리 시스템",
+      "version": "1.0.0",
+      "status": "completed",
+      "created": "2025-11-20",
+      "tags": ["agent", "factory", "system", "completed"],
+      "priority": "high",
+      "owner": "GOOS",
+      "description": "MoAI-ADK의 에이전트 팩토리 시스템을 구현하는 사양",
+      "progress": {
+        "total": 8,
+        "completed": 8,
+        "percentage": 100
+      }
+    }
+  },
+  "metadata": {
+    "total_specs": 3,
+    "completed_specs": 3,
+    "in_progress_specs": 0,
+    "draft_specs": 0,
+    "last_updated": "2025-11-26",
+    "index_version": "1.0.1"
+  }
+}

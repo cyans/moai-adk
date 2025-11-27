@@ -1,0 +1,177 @@
+# CodeRabbit Configuration File
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+
+coderabbit:
+  language: python
+  framework: general
+
+  # Enable reviews on all branches including develop
+  rules:
+    - name: "Enable reviews on all branches"
+      type: "config"
+      enabled: true
+
+  # Review settings
+  reviews:
+    review_status: true
+    review_on_draft: true
+    review_comment_lgtm: true
+
+  # Auto-approval settings (Pro feature)
+  auto_approve:
+    enabled: true
+    min_score: 0.75  # Approve if 75%+ quality (optimized for rate limit)
+
+  # Python-specific rules - Optimized for rate limit
+  python:
+    - check_type_hints: true
+    - check_docstrings: true
+    - check_pep8: true
+    - check_test_coverage: false  # Disable to reduce load
+
+  # SPEC document review rules
+  spec_review:
+    enabled: true
+    files: ".moai/specs/**/spec.md"
+    instructions: |
+      SPEC Document Review Checklist:
+
+      ## Metadata Validation (YAML Frontmatter)
+      - ✅ All 7 required fields present: id, version, status, created, updated, author, priority
+      - ✅ ID format correct: DOMAIN-### (e.g., AUTH-001)
+      - ✅ Version format: v0.0.1 (initial) or higher
+      - ✅ Status valid: draft, in-review, in-progress, completed, stable
+      - ✅ Author includes @ prefix (e.g., @username)
+      - ✅ Priority valid: critical, high, medium, low
+
+      ## Document Structure
+      - ✅ HISTORY section exists immediately after frontmatter
+      - ✅ HISTORY entries in reverse chronological order (latest first)
+      - ✅ Version history properly documented
+
+      ## EARS Requirements
+      - ✅ Ubiquitous requirements defined
+      - ✅ Event-driven (WHEN) requirements specified
+      - ✅ State-driven (WHILE) requirements included
+      - ✅ Constraints (IF) properly defined
+      - ✅ Optional features (WHERE) noted if applicable
+
+      ## Acceptance Criteria
+      - ✅ At least 2-3 test scenarios (Given-When-Then format)
+      - ✅ Clear test preconditions (Given)
+      - ✅ Specific actions (When)
+      - ✅ Expected outcomes (Then)
+
+      ## Traceability (Quality Tracking)
+      - ✅ Related test coverage documented
+      - ✅ Related code implementation documented
+      - ✅ Related documentation synchronized
+
+      ## Best Practices
+      - ✅ Clear and unambiguous language
+      - ✅ No spelling or grammar errors
+      - ✅ Proper Markdown formatting
+      - ✅ Links to related SPECs/issues
+      - ✅ Dependencies clearly documented
+
+  # Ignore patterns - Optimize for rate limit
+  ignore:
+    - "*.md"
+    - "*.txt"
+    - "docs/"
+    - "build/"
+    - "dist/"
+    - ".git/"
+    - "__pycache__/"
+    - "*.pyc"
+    # Additional ignore patterns to reduce review load
+    - ".moai/tmp/"
+    - ".moai/reports/"
+    - "ANALYSIS_SUMMARY.md"
+    - "COMMAND_DOCUMENTATION_STANDARDS.md"
+    - "COMMAND_EXAMPLES.md"
+    - "DOCUMENTATION_INDEX.md"
+      - "package-lock.json"
+    - "uv.lock"
+
+  # Review instructions
+  instructions: |
+    Review this pull request focusing on:
+
+    ## Code Quality
+    - Type hints presence and correctness
+    - Docstring completeness
+    - PEP-8 compliance
+    - Code readability and maintainability
+    - Design patterns and SOLID principles
+
+    ## Security
+    - Vulnerability detection
+    - Sensitive data handling
+    - Input validation
+    - Error handling
+
+    ## Testing
+    - Test coverage
+    - Edge case handling
+    - Test quality and assertions
+
+    ## Performance
+    - Algorithm efficiency
+    - Resource usage
+    - Potential bottlenecks
+
+    ## Documentation
+    - Comment clarity
+    - README updates
+    - Changelog entries
+
+  # Languages to review
+  languages:
+    - python
+    - yaml
+    - json
+    - markdown
+
+  # Disable review_skip_pattern to enable reviews on all branches
+  skip_review_on_forbidden_base_branch: false
+
+  # Changelog generation rules (Automated Release Pipeline)
+  changelog:
+    enabled: true
+    auto_generate_on_release: true
+    bilingual_support: true
+    languages:
+      - ko  # Korean
+      - en  # English
+    commit_analysis:
+      enabled: true
+      conventional_commits: true
+      scope_mapping:
+        feat: "✨ Features"
+        fix: "🐛 Bug Fixes"
+        docs: "📚 Documentation"
+        refactor: "♻️ Refactoring"
+        perf: "⚡ Performance"
+        test: "🧪 Testing"
+        chore: "🔧 Chore"
+        ci: "👷 CI/CD"
+    template: |
+      ## {VERSION} - {RELEASE_DATE}
+
+      ### 🇰🇷 한국어
+      {COMMITS_KO}
+
+      ### 🇺🇸 English
+      {COMMITS_EN}
+
+  # Auto-merge rules for automated version/changelog updates
+  auto_merge:
+    enabled: true
+    conditions:
+      - "title_contains: 'chore: Auto-update version'"
+      - "title_contains: 'docs: Auto-generated Changelog'"
+      - "coderabbit_score >= 0.75"
+      - "ci_passing: true"
+    delete_branch_on_merge: true
+    merge_method: squash  # Squash commits for cleaner history
