@@ -189,9 +189,12 @@ def windows_optimize_cli(
 ) -> None:
     """Apply Windows-specific optimizations to MoAI-ADK"""
     try:
-        # Import only after CLI setup
-        from moai_adk.cli.commands.windows_optimize import windows_optimize as _windows_optimize
-        _windows_optimize(dry_run=dry_run, force=force, verbose=verbose)
+        # Import and execute the command through context
+        from moai_adk.cli.commands.windows_optimize import windows_optimize
+        
+        # Invoke the command with proper Click context
+        ctx.invoke(windows_optimize, dry_run=dry_run, force=force, verbose=verbose)
+            
     except ImportError as e:
         console = get_console()
         console.print(f"[red]Error loading Windows optimization module: {e}[/red]")

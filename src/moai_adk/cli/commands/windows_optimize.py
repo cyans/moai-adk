@@ -22,6 +22,12 @@ console = Console()
     short_help="Optimize MoAI-ADK for Windows environment"
 )
 @click.option(
+    "--path",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=None,
+    help="Project path (default: auto-detect from current directory)",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Show what would be optimized without making changes",
@@ -40,6 +46,7 @@ console = Console()
 @click.pass_context
 def windows_optimize(
     ctx: click.Context,
+    path: Optional[str],
     dry_run: bool,
     force: bool,
     verbose: bool,
@@ -48,14 +55,27 @@ def windows_optimize(
 
     This command analyzes the Windows environment and applies targeted
     optimizations for:
-    - Statusline rendering improvements
-    - Hook script compatibility
-    - Settings configuration
-    - Template integration
+    - Statusline rendering improvements (creates statusline-runner.py)
+    - Hook script compatibility (adds UTF-8 encoding support)
+    - Settings configuration (updates paths for Windows)
+    - MCP server configuration (adds cmd /c wrapper for npx)
+    
+    The command automatically detects the MoAI-ADK project root by searching
+    for the .moai directory. You can also specify a path with --path.
+    
+    Examples:
+        moai-adk windows-optimize              # Optimize current project
+        moai-adk windows-optimize --path ./my-project
+        moai-adk windows-optimize --dry-run    # Preview changes
+        moai-adk windows-optimize --verbose    # Show detailed output
     """
     try:
+        # Convert path to Path object if provided
+        project_path = Path(path).resolve() if path else None
+        
         # Initialize Windows patch manager
         patch_manager = WindowsPatchManager(
+            project_path=project_path,
             dry_run=dry_run,
             force=force,
             verbose=verbose
@@ -78,29 +98,29 @@ def windows_optimize(
 def display_success(result, dry_run: bool, verbose: bool) -> None:
     """Display successful optimization results."""
     console.print(Panel.fit(
-        "[green]✅ Windows optimization completed successfully![/green]",
+        "[green]Windows optimization completed successfully![/green]",
         title="Optimization Status",
         border_style="green"
     ))
 
     if dry_run:
-        console.print("[yellow]📋 This was a dry run - no changes were made.[/yellow]")
+        console.print("[yellow]This was a dry run - no changes were made.[/yellow]")
 
     if verbose and result.summary:
-        console.print("\n[cyan]📊 Optimization Summary:[/cyan]")
+        console.print("\n[cyan]Optimization Summary:[/cyan]")
         console.print(result.summary)
 
 
 def display_error(result, verbose: bool) -> None:
     """Display optimization error results."""
     console.print(Panel.fit(
-        "[red]❌ Windows optimization failed![/red]",
+        "[red]Windows optimization failed![/red]",
         title="Optimization Status",
         border_style="red"
     ))
 
     if verbose and result.error_details:
-        console.print(f"\n[red]🔧 Error Details:[/red]")
+        console.print(f"\n[red]Error Details:[/red]")
         console.print(result.error_details)
 
 

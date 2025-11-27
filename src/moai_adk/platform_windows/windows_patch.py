@@ -6,7 +6,7 @@ Implements Windows-specific optimizations for MoAI-ADK.
 import os
 import sys
 import platform
-import locale
+import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
@@ -37,6 +37,7 @@ class WindowsPatchManager:
 
     def __init__(
         self,
+        project_path: Optional[Path] = None,
         dry_run: bool = False,
         force: bool = False,
         verbose: bool = False
@@ -45,14 +46,48 @@ class WindowsPatchManager:
         self.force = force
         self.verbose = verbose
         self.result = OptimizationResult(success=True)
-        self.system_path = Path(sys.prefix)
-        self.project_root = Path.cwd()
+        
+        # Find project root (look for .moai directory)
+        if project_path:
+            self.project_root = Path(project_path).resolve()
+        else:
+            self.project_root = self._find_project_root()
+        
+        if not self.project_root:
+            self.result.success = False
+            self.result.error_details = "Could not find MoAI-ADK project root (.moai directory not found)"
+    
+    def _find_project_root(self) -> Optional[Path]:
+        """Find MoAI-ADK project root by searching for .moai directory."""
+        current = Path.cwd().resolve()
+        max_depth = 10
+        
+        for _ in range(max_depth):
+            if (current / ".moai").is_dir():
+                if self.verbose:
+                    console.print(f"[cyan]Found project root: {current}[/cyan]")
+                return current
+            if current == current.parent:
+                break
+            current = current.parent
+        
+        # Fallback: check if current directory has .claude or CLAUDE.md
+        current = Path.cwd().resolve()
+        if (current / ".claude").is_dir() or (current / "CLAUDE.md").exists():
+            if self.verbose:
+                console.print(f"[yellow]Using current directory as project root: {current}[/yellow]")
+            return current
+        
+        return None
 
     def run_optimization(self) -> OptimizationResult:
         """Execute the complete Windows optimization workflow."""
         try:
+            if not self.project_root:
+                return self.result
+            
             if self.verbose:
-                console.print("[cyan]> Starting Windows optimization analysis...[/cyan]")
+                console.print(f"[cyan]> Starting Windows optimization for: {self.project_root}[/cyan]")
 
             # Step 1: System detection
             if not self._is_windows_system():
@@ -70,23 +105,27 @@ class WindowsPatchManager:
                 console=console,
                 transient=True
             ) as progress:
-                task = progress.add_task("Running optimizations...", total=4)
+                task = progress.add_task("Running optimizations...", total=5)
 
-                # Patch statusline
-                progress.update(task, advance=1, description="Patching statusline...")
-                self._patch_statusline()
+                # Patch statusline-runner.py
+                progress.update(task, advance=1, description="Creating statusline-runner.py...")
+                self._patch_statusline_runner()
 
                 # Patch hooks
                 progress.update(task, advance=1, description="Patching hooks...")
                 self._patch_hooks()
 
-                # Patch settings
-                progress.update(task, advance=1, description="Patching settings...")
+                # Patch settings.json
+                progress.update(task, advance=1, description="Patching settings.json...")
                 self._patch_settings()
 
-                # Integrate templates
-                progress.update(task, advance=1, description="Integrating templates...")
-                self._integrate_templates()
+                # Patch mcp.json
+                progress.update(task, advance=1, description="Patching mcp.json...")
+                self._patch_mcp_json()
+
+                # Verify optimizations
+                progress.update(task, advance=1, description="Verifying optimizations...")
+                self._verify_optimizations()
 
             # Generate summary
             self._generate_summary()
@@ -102,68 +141,74 @@ class WindowsPatchManager:
 
     def _is_windows_system(self) -> bool:
         """Check if running on Windows."""
-        return platform.system() == "Windows"
+        return platform.system() == "Windows" or sys.platform == "win32"
 
-    def _patch_statusline(self) -> None:
-        """Apply statusline optimizations for Windows."""
+    def _patch_statusline_runner(self) -> None:
+        """Create or update statusline-runner.py with Windows UTF-8 encoding support."""
         if self.verbose:
-            console.print("  > Optimizing statusline for Windows...")
+            console.print("  > Creating/updating statusline-runner.py...")
 
         try:
-            statusline_file = self.project_root / "src" / "moai_adk" / "statusline" / "main.py"
+            scripts_dir = self.project_root / ".moai" / "scripts"
+            scripts_dir.mkdir(parents=True, exist_ok=True)
+            
+            statusline_runner = scripts_dir / "statusline-runner.py"
+            
+            # Content for statusline-runner.py (based on working example)
+            content = '''#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Statusline runner with UTF-8 encoding support for Windows
+"""
+import os
+import sys
+import subprocess
 
-            if not statusline_file.exists():
+# UTF-8 환경 변수 설정
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
+
+# Windows에서 콘솔 코드 페이지를 UTF-8로 설정
+if sys.platform == 'win32':
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleOutputCP(65001)  # UTF-8
+    except Exception:
+        pass
+
+# moai-adk statusline 실행
+try:
+    result = subprocess.run(
+        ['uv', 'run', 'moai-adk', 'statusline'],
+        env=os.environ,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        encoding='utf-8',
+        errors='replace'
+    )
+    sys.exit(result.returncode)
+except Exception as e:
+    print(f"Error running statusline: {e}", file=sys.stderr)
+    sys.exit(1)
+'''
+            
+            if self.dry_run:
+                console.print("    > Would create/update statusline-runner.py")
+            else:
+                statusline_runner.write_text(content, encoding="utf-8")
+                self.result.patches_applied += 1
                 if self.verbose:
-                    console.print("    > Statusline file not found, skipping...")
-                return
-
-            # Read current content
-            content = statusline_file.read_text(encoding="utf-8")
-
-            # Apply Windows-specific fixes
-            fixes_applied = 0
-
-            # Fix console encoding issues
-            if "console_encoding" not in content:
-                if self.dry_run:
-                    console.print("    > Would add console encoding fix...")
-                else:
-                    content = content.replace(
-                        "import os",
-                        "import os\nimport locale"
-                    )
-                    content = content.replace(
-                        "console = Console()",
-                        "console = Console(encoding=locale.getpreferredencoding())"
-                    )
-                    fixes_applied += 1
-                    if self.verbose:
-                        console.print("    > Applied console encoding fix")
-
-            # Fix path separators
-            if "\\path_sep\\" in content:
-                if self.dry_run:
-                    console.print("    > Would fix path separator...")
-                else:
-                    content = content.replace("\\path_sep\\", os.sep)
-                    fixes_applied += 1
-                    if self.verbose:
-                        console.print("    > Fixed path separators")
-
-            # Save changes if not dry run
-            if fixes_applied > 0 and not self.dry_run:
-                statusline_file.write_text(content, encoding="utf-8")
-
-            self.result.patches_applied += fixes_applied
+                    console.print("    > Created/updated statusline-runner.py")
 
         except Exception as e:
-            error_msg = f"Failed to patch statusline: {e}"
+            error_msg = f"Failed to create statusline-runner.py: {e}"
             self.result.warnings.append(error_msg)
             if self.verbose:
                 console.print(f"    > {error_msg}")
 
     def _patch_hooks(self) -> None:
-        """Apply hook optimizations for Windows."""
+        """Add UTF-8 encoding support to hook files."""
         if self.verbose:
             console.print("  > Optimizing hooks for Windows...")
 
@@ -175,38 +220,97 @@ class WindowsPatchManager:
                 return
 
             hooks_applied = 0
+            utf8_setup = '''# UTF-8 환경 변수 설정 (Windows 호환성)
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
+
+# Windows에서 콘솔 코드 페이지를 UTF-8로 설정
+if sys.platform == 'win32':
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleOutputCP(65001)  # UTF-8
+            kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
+    except Exception:
+        pass
+'''
 
             for hook_file in hooks_dir.glob("*.py"):
                 try:
                     content = hook_file.read_text(encoding="utf-8")
+                    original_content = content
+                    modified = False
 
-                    # Apply Windows-specific fixes
-                    if "subprocess.call" in content and "shell=True" not in content:
-                        if self.dry_run:
-                            console.print(f"    > Would fix subprocess in {hook_file.name}...")
-                        else:
-                            # Add shell=True for Windows compatibility
-                            content = content.replace(
-                                "subprocess.call([",
-                                "subprocess.call(["
-                            )
-                            content = content.replace(
-                                "subprocess.run(",
-                                "subprocess.run("
-                            )
-                            # Add Windows-specific path handling
-                            if "Path(" in content:
-                                content = content.replace(
-                                    "Path(",
-                                    "Path(str("
-                                )
-                                content += "\n"
-                            hooks_applied += 1
-                            if self.verbose:
-                                console.print(f"    > Fixed subprocess in {hook_file.name}")
+                    # Check if UTF-8 encoding setup is already present
+                    if "PYTHONIOENCODING" not in content:
+                        # Find insertion point (after imports and docstrings)
+                        lines = content.split('\n')
+                        insert_idx = 0
+                        in_docstring = False
+                        docstring_char = None
+                        
+                        for i, line in enumerate(lines):
+                            # Track docstrings
+                            if '"""' in line or "'''" in line:
+                                if not in_docstring:
+                                    in_docstring = True
+                                    docstring_char = '"""' if '"""' in line else "'''"
+                                elif docstring_char in line:
+                                    in_docstring = False
+                                continue
+                            
+                            # Skip docstrings
+                            if in_docstring:
+                                continue
+                            
+                            # Find last import statement
+                            if line.strip().startswith('import ') or line.strip().startswith('from '):
+                                insert_idx = i + 1
+                            # Stop at first non-import, non-comment, non-empty line
+                            elif line.strip() and not line.strip().startswith('#'):
+                                break
+                        
+                        # Insert UTF-8 encoding setup after imports
+                        lines.insert(insert_idx, utf8_setup)
+                        content = '\n'.join(lines)
+                        modified = True
 
-                    if not self.dry_run and hooks_applied > 0:
+                    # Fix subprocess.run calls to include encoding (simple pattern matching)
+                    if "subprocess.run" in content:
+                        import re
+                        # Pattern: subprocess.run(..., ...) - match common patterns
+                        # Look for subprocess.run calls without encoding parameter
+                        patterns_to_fix = [
+                            # Pattern: subprocess.run([...])
+                            (r"subprocess\.run\((\[[^\]]+\])(\s*)\)", r"subprocess.run(\1\2, encoding='utf-8', errors='replace')"),
+                            # Pattern: subprocess.run([...], ...) without encoding
+                            (r"subprocess\.run\((\[[^\]]+\])(,\s*)([^,)]+)(\))(?!.*encoding=)", 
+                             lambda m: f"subprocess.run({m.group(1)}{m.group(2)}{m.group(3)}, encoding='utf-8', errors='replace'{m.group(4)}"),
+                        ]
+                        
+                        for pattern, replacement in patterns_to_fix:
+                            if callable(replacement):
+                                new_content = re.sub(pattern, replacement, content)
+                            else:
+                                new_content = re.sub(pattern, replacement, content)
+                            
+                            if new_content != content:
+                                content = new_content
+                                modified = True
+                                break
+
+                    if modified and not self.dry_run:
                         hook_file.write_text(content, encoding="utf-8")
+                        hooks_applied += 1
+                        if self.verbose:
+                            console.print(f"    > Patched {hook_file.name}")
 
                 except Exception as e:
                     error_msg = f"Failed to process hook {hook_file.name}: {e}"
@@ -214,7 +318,8 @@ class WindowsPatchManager:
                     if self.verbose:
                         console.print(f"    > {error_msg}")
 
-            self.result.patches_applied += hooks_applied
+            if hooks_applied > 0:
+                self.result.patches_applied += hooks_applied
 
         except Exception as e:
             error_msg = f"Failed to patch hooks: {e}"
@@ -223,9 +328,9 @@ class WindowsPatchManager:
                 console.print(f"    > {error_msg}")
 
     def _patch_settings(self) -> None:
-        """Apply settings optimizations for Windows."""
+        """Update settings.json with Windows-optimized paths."""
         if self.verbose:
-            console.print("  > Optimizing settings for Windows...")
+            console.print("  > Optimizing settings.json for Windows...")
 
         try:
             settings_file = self.project_root / ".claude" / "settings.json"
@@ -234,117 +339,255 @@ class WindowsPatchManager:
                     console.print("    > Settings file not found, skipping...")
                 return
 
+            # Read and parse JSON - handle malformed JSON
             content = settings_file.read_text(encoding="utf-8")
+            
+            # Fix common JSON issues (trailing comma, extra data)
+            # Remove trailing comma before closing brace
+            content = content.rstrip()
+            # Remove any content after the main JSON object
+            if '},\n\n  "environment"' in content:
+                # This is a malformed JSON - fix it
+                content = content.split('},\n\n  "environment"')[0] + '\n}'
+            
+            try:
+                settings = json.loads(content)
+            except json.JSONDecodeError:
+                # Try to fix by removing the last part
+                lines = content.split('\n')
+                # Find the last valid closing brace
+                brace_count = 0
+                last_valid_line = len(lines) - 1
+                for i, line in enumerate(lines):
+                    brace_count += line.count('{') - line.count('}')
+                    if brace_count == 0 and i > 0:
+                        last_valid_line = i
+                        break
+                
+                content = '\n'.join(lines[:last_valid_line + 1])
+                settings = json.loads(content)
+            
+            modified = False
 
-            settings_applied = 0
-
-            # Fix Windows path handling
-            if "$CLAUDE_PROJECT_DIR" in content:
-                if self.dry_run:
-                    console.print("    > Would fix project directory path...")
-                else:
-                    # Ensure proper quoting for Windows paths
-                    content = content.replace(
-                        '"$CLAUDE_PROJECT_DIR"',
-                        '"%CLAUDE_PROJECT_DIR%"'
-                    )
-                    settings_applied += 1
+            # Fix statusline command
+            if "statusLine" in settings:
+                statusline_cmd = settings["statusLine"].get("command", "")
+                # Update to use statusline-runner.py with Windows path
+                expected_cmd = 'uv run python %CLAUDE_PROJECT_DIR%/.moai/scripts/statusline-runner.py'
+                if statusline_cmd != expected_cmd and "$CLAUDE_PROJECT_DIR" in statusline_cmd:
+                    settings["statusLine"]["command"] = expected_cmd
+                    modified = True
                     if self.verbose:
-                        console.print("    > Fixed project directory path")
+                        console.print("    > Updated statusline command")
 
-            # Add Windows-specific environment variables
-            if "environment" not in content.lower():
-                if self.dry_run:
-                    console.print("    > Would add Windows environment variables...")
-                else:
-                    # Add Windows-specific environment setup
-                    env_section = '''
-  "environment": {
-    "PATH": "%PATH%;%CLAUDE_PROJECT_DIR%/.venv/Scripts",
-    "PYTHONPATH": "%CLAUDE_PROJECT_DIR%/src"
-  }
-'''
-                    # Insert before the last closing brace
-                    content = content.rstrip() + ",\n" + env_section + "\n}"
-                    settings_applied += 1
-                    if self.verbose:
-                        console.print("    > Added Windows environment variables")
+            # Fix hook commands
+            if "hooks" in settings:
+                hook_types = ["SessionStart", "PreToolUse", "SessionEnd"]
+                for hook_type in hook_types:
+                    if hook_type in settings["hooks"]:
+                        for hook_group in settings["hooks"][hook_type]:
+                            if "hooks" in hook_group:
+                                for hook in hook_group["hooks"]:
+                                    if hook.get("type") == "command":
+                                        cmd = hook.get("command", "")
+                                        # Update to use %CLAUDE_PROJECT_DIR% for Windows
+                                        if "$CLAUDE_PROJECT_DIR" in cmd:
+                                            new_cmd = cmd.replace("$CLAUDE_PROJECT_DIR", "%CLAUDE_PROJECT_DIR%")
+                                            # Remove quotes around variable if present
+                                            new_cmd = new_cmd.replace('"%CLAUDE_PROJECT_DIR%"', '%CLAUDE_PROJECT_DIR%')
+                                            hook["command"] = new_cmd
+                                            modified = True
+                                            if self.verbose:
+                                                console.print(f"    > Updated {hook_type} hook command")
 
-            if settings_applied > 0 and not self.dry_run:
-                settings_file.write_text(content, encoding="utf-8")
+            if modified and not self.dry_run:
+                # Write back with proper formatting
+                settings_file.write_text(
+                    json.dumps(settings, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8"
+                )
+                self.result.patches_applied += 1
+                if self.verbose:
+                    console.print("    > Updated settings.json")
 
-            self.result.patches_applied += settings_applied
-
-        except Exception as e:
-            error_msg = f"Failed to patch settings: {e}"
+        except json.JSONDecodeError as e:
+            error_msg = f"Failed to parse settings.json: {e}"
             self.result.warnings.append(error_msg)
             if self.verbose:
                 console.print(f"    > {error_msg}")
+            # Try to fix the JSON file
+            try:
+                self._fix_settings_json()
+            except Exception as fix_error:
+                if self.verbose:
+                    console.print(f"    > Failed to auto-fix settings.json: {fix_error}")
+        except Exception as e:
+            error_msg = f"Failed to patch settings.json: {e}"
+            self.result.warnings.append(error_msg)
+            if self.verbose:
+                console.print(f"    > {error_msg}")
+    
+    def _fix_settings_json(self) -> None:
+        """Try to fix malformed settings.json file."""
+        settings_file = self.project_root / ".claude" / "settings.json"
+        content = settings_file.read_text(encoding="utf-8")
+        
+        # Remove everything after the main JSON object
+        lines = content.split('\n')
+        new_lines = []
+        brace_count = 0
+        in_string = False
+        escape_next = False
+        
+        for line in lines:
+            if brace_count == 0 and line.strip() and not line.strip().startswith('{'):
+                # We've closed the main object, stop here
+                break
+            
+            for char in line:
+                if escape_next:
+                    escape_next = False
+                    continue
+                if char == '\\':
+                    escape_next = True
+                    continue
+                if char == '"' and not escape_next:
+                    in_string = not in_string
+                if not in_string:
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+            
+            new_lines.append(line)
+            
+            if brace_count == 0 and new_lines:
+                break
+        
+        # Write fixed content
+        fixed_content = '\n'.join(new_lines)
+        if not fixed_content.rstrip().endswith('}'):
+            fixed_content += '\n}'
+        
+        settings_file.write_text(fixed_content, encoding="utf-8")
 
-    def _integrate_templates(self) -> None:
-        """Apply template optimizations for Windows."""
+    def _patch_mcp_json(self) -> None:
+        """Update .mcp.json with Windows-optimized npx commands (cmd /c wrapper)."""
         if self.verbose:
-            console.print("  > Optimizing template integration for Windows...")
+            console.print("  > Optimizing .mcp.json for Windows...")
 
         try:
-            templates_dir = self.project_root / "templates"
-            if not templates_dir.exists():
+            mcp_file = self.project_root / ".mcp.json"
+            if not mcp_file.exists():
                 if self.verbose:
-                    console.print("    > Templates directory not found, skipping...")
+                    console.print("    > .mcp.json not found, skipping...")
                 return
 
-            templates_integrated = 0
+            # Read and parse JSON
+            content = mcp_file.read_text(encoding="utf-8")
+            mcp_config = json.loads(content)
+            modified = False
 
-            # Check for template compatibility
-            template_files = list(templates_dir.rglob("*.py")) + list(templates_dir.rglob("*.json"))
-
-            for template_file in template_files:
-                try:
-                    content = template_file.read_text(encoding="utf-8")
-
-                    # Apply Windows-specific template fixes
-                    if "{{PROJECT_DIR}}" in content:
-                        if self.dry_run:
-                            console.print(f"    > Would fix template in {template_file.name}...")
+            if "mcpServers" in mcp_config:
+                for server_name, server_config in mcp_config["mcpServers"].items():
+                    # Skip SSE servers
+                    if server_config.get("type") == "sse":
+                        continue
+                    
+                    # Check if command is npx and needs Windows wrapper
+                    command = server_config.get("command", "")
+                    args = server_config.get("args", [])
+                    
+                    if command == "npx" or (isinstance(args, list) and len(args) > 0 and args[0] == "npx"):
+                        # Convert to Windows format: cmd /c npx ...
+                        server_config["command"] = "cmd"
+                        if isinstance(args, list):
+                            # Insert /c before npx
+                            if args[0] == "npx":
+                                server_config["args"] = ["/c"] + args
+                            else:
+                                server_config["args"] = ["/c", "npx"] + args[1:]
                         else:
-                            # Update template for Windows compatibility
-                            content = content.replace(
-                                "{{PROJECT_DIR}}",
-                                "%CLAUDE_PROJECT_DIR%"
-                            )
-                            templates_integrated += 1
-                            if self.verbose:
-                                console.print(f"    > Fixed template in {template_file.name}")
+                            server_config["args"] = ["/c", "npx"] + (args if isinstance(args, list) else [args])
+                        
+                        modified = True
+                        if self.verbose:
+                            console.print(f"    > Updated {server_name} MCP server for Windows")
 
-                    if "subprocess.run" in content and "shell=" not in content:
-                        if self.dry_run:
-                            console.print(f"    > Would add shell=True in {template_file.name}...")
-                        else:
-                            content = content.replace(
-                                "subprocess.run([",
-                                "subprocess.run(["
-                            )
-                            content += ", shell=True"
-                            templates_integrated += 1
-                            if self.verbose:
-                                console.print(f"    > Added shell=True in {template_file.name}")
+            if modified and not self.dry_run:
+                # Write back with proper formatting
+                mcp_file.write_text(
+                    json.dumps(mcp_config, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8"
+                )
+                self.result.patches_applied += 1
+                if self.verbose:
+                    console.print("    > Updated .mcp.json")
 
-                    if templates_integrated > 0 and not self.dry_run:
-                        template_file.write_text(content, encoding="utf-8")
-
-                except Exception as e:
-                    error_msg = f"Failed to process template {template_file.name}: {e}"
-                    self.result.warnings.append(error_msg)
-                    if self.verbose:
-                        console.print(f"    > {error_msg}")
-
-            self.result.patches_applied += templates_integrated
-
-        except Exception as e:
-            error_msg = f"Failed to integrate templates: {e}"
+        except json.JSONDecodeError as e:
+            error_msg = f"Failed to parse .mcp.json: {e}"
             self.result.warnings.append(error_msg)
             if self.verbose:
                 console.print(f"    > {error_msg}")
+        except Exception as e:
+            error_msg = f"Failed to patch .mcp.json: {e}"
+            self.result.warnings.append(error_msg)
+            if self.verbose:
+                console.print(f"    > {error_msg}")
+
+    def _verify_optimizations(self) -> None:
+        """Verify that optimizations were applied correctly."""
+        if self.verbose:
+            console.print("  > Verifying optimizations...")
+
+        checks_passed = 0
+        checks_failed = 0
+
+        # Check statusline-runner.py
+        statusline_runner = self.project_root / ".moai" / "scripts" / "statusline-runner.py"
+        if statusline_runner.exists():
+            checks_passed += 1
+            if self.verbose:
+                console.print("    > [OK] statusline-runner.py exists")
+        else:
+            checks_failed += 1
+            if self.verbose:
+                console.print("    > [FAIL] statusline-runner.py not found")
+
+        # Check settings.json
+        settings_file = self.project_root / ".claude" / "settings.json"
+        if settings_file.exists():
+            try:
+                content = settings_file.read_text(encoding="utf-8")
+                if "%CLAUDE_PROJECT_DIR%" in content:
+                    checks_passed += 1
+                    if self.verbose:
+                        console.print("    > [OK] settings.json uses Windows paths")
+                else:
+                    checks_failed += 1
+                    if self.verbose:
+                        console.print("    > [FAIL] settings.json does not use Windows paths")
+            except Exception:
+                checks_failed += 1
+
+        # Check .mcp.json
+        mcp_file = self.project_root / ".mcp.json"
+        if mcp_file.exists():
+            try:
+                content = mcp_file.read_text(encoding="utf-8")
+                if '"command": "cmd"' in content and '"/c"' in content:
+                    checks_passed += 1
+                    if self.verbose:
+                        console.print("    > [OK] .mcp.json uses Windows cmd wrapper")
+                else:
+                    checks_failed += 1
+                    if self.verbose:
+                        console.print("    > [FAIL] .mcp.json does not use Windows cmd wrapper")
+            except Exception:
+                checks_failed += 1
+
+        if checks_failed > 0:
+            self.result.warnings.append(f"{checks_failed} verification checks failed")
 
     def _generate_summary(self) -> None:
         """Generate optimization summary."""
