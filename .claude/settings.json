@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/moai/session_start__show_project_info.py"
+            "command": "uv run .claude/hooks/moai/session_start__show_project_info.py"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/moai/pre_tool__document_management.py"
+            "command": "uv run .claude/hooks/moai/pre_tool__document_management.py"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/moai/session_end__auto_cleanup.py"
+            "command": "uv run .claude/hooks/moai/session_end__auto_cleanup.py"
           }
         ]
       }
@@ -171,7 +171,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "uv run moai-adk statusline",
+    "command": "cmd /c \"python -m moai_adk.statusline.main\"",
     "padding": 0,
     "refreshInterval": 300
   },
